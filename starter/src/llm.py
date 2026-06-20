@@ -14,7 +14,7 @@ from langchain_core.documents import Document
 from src.config import LLM_MODEL
 from src.prompts import SYSTEM_PROMPT, build_user_message
 
-load_dotenv()
+load_dotenv()  # load GROQ_API_KEY from .env
 
 
 @dataclass(frozen=True)

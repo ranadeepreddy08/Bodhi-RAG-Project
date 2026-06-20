@@ -63,7 +63,11 @@ def chunk_documents(docs: list[Document]) -> list[Document]:
     Hint: The splitter is already imported at the top of this file.
     """
     # ✏️  YOUR CODE HERE
-    pass
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+    )
+    return splitter.split_documents(docs)
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +93,15 @@ def build_vectorstore(chunks: list[Document]) -> None:
     already imported at the top of this file.
     """
     # ✏️  YOUR CODE HERE
-    pass
+    if CHROMA_DIR.exists():
+        shutil.rmtree(CHROMA_DIR)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings,
+        collection_name=COLLECTION_NAME,
+        persist_directory=str(CHROMA_DIR),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +121,13 @@ def main() -> None:
       7. Print "Done. Index saved at {CHROMA_DIR}"
     """
     # ✏️  YOUR CODE HERE
-    pass
+    pages = load_pdf(PDF_PATH)
+    sanity_check(pages)
+    chunks = chunk_documents(pages)
+    print(f"Split into {len(chunks)} chunks.")
+    print("Embedding and writing to Chroma...")
+    build_vectorstore(chunks)
+    print(f"Done. Index saved at {CHROMA_DIR}")
 
 
 if __name__ == "__main__":
