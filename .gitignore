@@ -3,6 +3,7 @@
 !.env.example
 .venv/
 venv/
+solution/
 __pycache__/
 *.pyc
 *.pyo
@@ -26,3 +27,7 @@ docs/*.docx
 
 # Workshop planning notes — internal only, not for the repo.
 workshop/
+# Bodhi local data
+starter/chroma_db/
+starter/NCERT-Class-10-Science24.pdf
+starter/ocr_test_page.png

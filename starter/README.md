@@ -1,74 +1,52 @@
-# 🚀 Starter — Build Your First Production RAG
+# 📚 Bodhi AI Tutor
 
-Welcome to the **"Build Your First Production RAG"** workshop!
+### AI Textbook Tutor in Your Mother Tongue
 
-## Your mission
+Bodhi is a multilingual, textbook-grounded AI tutor designed for Indian students who may study from English-medium textbooks but understand concepts better in their mother tongue.
 
-All files are fully written **except one**: `src/ingest.py`
+Instead of giving generic chatbot answers, Bodhi grounds its explanations in the student's uploaded textbook and teaches concepts in a simple, student-friendly regional language.
 
-That's the file we'll code together live. It wires the entire pipeline:
+---
 
-```
-PDF  →  chunks  →  embeddings  →  ChromaDB
-```
+## 🎯 Problem
 
-Open it and follow the `TODO` comments in order:
-1. `chunk_documents()` — split pages into overlapping chunks
-2. `build_vectorstore()` — embed chunks and persist to ChromaDB  
-3. `main()` — wire steps 1 + 2 together
+Many Indian students study from English-medium textbooks while thinking and reasoning in their mother tongue.
 
-## Setup
+The problem is not always a lack of ability. Often, the explanation simply does not arrive in the language in which the student understands the concept best.
 
-**Mac / Linux**
-```bash
-cd starter
-uv sync                  # creates .venv and installs all dependencies
+Generic AI chatbots can make this worse by:
 
-cp ../.env.example .env  # paste your DeepInfra API key here
-```
+- Giving polished but generic answers
+- Ignoring the student's actual textbook
+- Hallucinating information outside the textbook
+- Assuming that the student understood the explanation
+- Providing little personalized practice
 
-**Windows (PowerShell)**
-```powershell
-cd starter
-uv sync                  # creates .venv and installs all dependencies
+Bodhi is designed to address these problems through textbook-grounded RAG, regional-language teaching, and a teach-back learning loop.
 
-copy .env.example .env   # paste your DeepInfra API key here
-```
+---
 
-> **Need uv?**
-> - Mac/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-> - Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+## 💡 Solution
 
-## Test your work
+Bodhi follows this pipeline:
 
-Once you've filled in `src/ingest.py`, drop the PDF into this folder (same level as `app.py`) and run:
-
-
-**Mac / Linux**
-```bash
-uv run python -m src.ingest
-```
-
-**Windows (PowerShell)**
-```powershell
-uv run python -m src.ingest
-```
-
-You should see:
-```
-Loaded N pages from API Documentation Partial.pdf
-Total characters: XX,XXX
-Split into N chunks (chunk_size=500, overlap=50)
-Embedding and writing to Chroma...
-Done. Index saved at .../chroma_db
-```
-
-Then launch the bot:
-
-```bash
-uv run streamlit run app.py
-```
-
-## Stuck?
-
-Check `../solution/src/ingest.py` — but try first! 💪
+```text
+Student uploads textbook
+          ↓
+PDF / textbook extraction
+          ↓
+Text cleaning and chunking
+          ↓
+BGE embeddings
+          ↓
+Chroma vector database
+          ↓
+Relevant textbook retrieval
+          ↓
+Grounded LLM response
+          ↓
+Regional-language explanation
+          ↓
+Teach-back evaluation
+          ↓
+Adaptive practice
