@@ -313,7 +313,7 @@ TEXTBOOK CONTEXT
             },
         ],
         temperature=0,
-        max_completion_tokens=8000,
+        max_completion_tokens=12000,
         response_format={"type": "json_object"},
     )
 

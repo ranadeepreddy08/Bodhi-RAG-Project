@@ -400,21 +400,25 @@ def generate_practice_questions() -> None:
 
     language_instruction = (
         get_language_instruction(
-            language
+            st.session_state.selected_language
         )
     )
 
-    chunks = rag.retrieve(
-    "OAuth API authentication authorization concepts",
-    st.session_state.vectorstore,
-    k=5,
+    raw = st.session_state.vectorstore.get(
+        include=["documents", "metadatas"],
+        limit=3,
     )
-    st.write("DEBUG practice chunks:", len(chunks))
 
-    if not chunks:
-        st.error(
-            "Could not find relevant textbook content."
-        )
+    from langchain_core.documents import Document
+
+    chunks = [
+        Document(page_content=doc, metadata=meta or {})
+        for doc, meta in zip(raw["documents"], raw["metadatas"])
+    ]
+    
+
+    if len(chunks) == 0:
+        st.error("No textbook chunks available.")
         return
 
     with st.spinner(
@@ -868,6 +872,10 @@ with col3:
 # ADAPTIVE PRACTICE
 # ============================================================================
 
+# ============================================================================
+# ADAPTIVE PRACTICE
+# ============================================================================
+
 st.divider()
 
 st.subheader("📘 Adaptive Practice")
@@ -881,10 +889,31 @@ if st.button(
     "🚀 Generate Practice",
     use_container_width=True,
 ):
-
     generate_practice_questions()
 
 
+if st.session_state.practice_data:
+
+    st.success("Quiz generated!")
+
+    for i, mcq in enumerate(
+        st.session_state.practice_data["mcqs"],
+        start=1
+    ):
+
+        st.write(
+            f"### Q{i}. {mcq['question']}"
+        )
+
+        for option in mcq["options"]:
+
+            st.write(
+                f"{option['label']}. {option['text']}"
+            )
+
+        st.info(
+            f"Correct Answer: {mcq['correct_answer']}"
+        )
 
 # ============================================================================
 # CHAT HISTORY
