@@ -3,7 +3,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-PDF_PATH = PROJECT_ROOT / "NCERT-Class-10-Science24.pdf"
+PDF_PATH = PROJECT_ROOT / "API Documentation Partial.pdf"
 CHROMA_DIR = PROJECT_ROOT / "chroma_db"
 COLLECTION_NAME = "textbook"
 

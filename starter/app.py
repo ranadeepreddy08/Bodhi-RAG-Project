@@ -24,9 +24,9 @@ from src.language import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Page configuration
-# ---------------------------------------------------------------------------
+# ============================================================================
+# PAGE CONFIGURATION
+# ============================================================================
 
 st.set_page_config(
     page_title="Bodhi AI Tutor",
@@ -35,11 +35,13 @@ st.set_page_config(
 )
 
 
-# ---------------------------------------------------------------------------
-# Session state
-# ---------------------------------------------------------------------------
+# ============================================================================
+# SESSION STATE
+# ============================================================================
 
 def init_state() -> None:
+    if "selected_language" not in st.session_state:
+        st.session_state.selected_language = "Telugu"
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -62,13 +64,52 @@ def init_state() -> None:
     if "temp_dir" not in st.session_state:
         st.session_state.temp_dir = None
 
+    # Teach-back state
+    if "show_teach_back" not in st.session_state:
+        st.session_state.show_teach_back = False
+
+    if "teach_back_question" not in st.session_state:
+        st.session_state.teach_back_question = None
+
+    if "teach_back_chunks" not in st.session_state:
+        st.session_state.teach_back_chunks = []
+
+    if "teach_back_language" not in st.session_state:
+        st.session_state.teach_back_language = None
+
+    if "teach_back_result" not in st.session_state:
+        st.session_state.teach_back_result = None
+
+    if "teach_back_answer" not in st.session_state:
+        st.session_state.teach_back_answer = ""
+
+        # Adaptive Practice state
+
+    if "practice_data" not in st.session_state:
+        st.session_state.practice_data = None
+
+    if "practice_difficulty" not in st.session_state:
+        st.session_state.practice_difficulty = "Medium"
+
+    if "practice_result" not in st.session_state:
+        st.session_state.practice_result = None
+
+    if "practice_score" not in st.session_state:
+        st.session_state.practice_score = None
+
+    if "practice_answers" not in st.session_state:
+        st.session_state.practice_answers = {}
+
+    if "practice_short_result" not in st.session_state:
+        st.session_state.practice_short_result = None
+
 
 init_state()
 
 
-# ---------------------------------------------------------------------------
-# Source display
-# ---------------------------------------------------------------------------
+# ============================================================================
+# SOURCE DISPLAY
+# ============================================================================
 
 def render_sources(chunks) -> None:
 
@@ -93,16 +134,15 @@ def render_sources(chunks) -> None:
             )
 
 
-# ---------------------------------------------------------------------------
-# Document processing
-# ---------------------------------------------------------------------------
+# ============================================================================
+# DOCUMENT PROCESSING
+# ============================================================================
 
 def process_uploaded_pdf(
     uploaded_file,
 ) -> None:
     """Save and index the uploaded PDF."""
 
-    # Create a temporary directory for this document.
     temp_dir = Path(
         tempfile.mkdtemp(
             prefix="bodhi_"
@@ -128,10 +168,7 @@ def process_uploaded_pdf(
         / "chroma_db"
     )
 
-    # Give each uploaded document its own collection.
-    collection_name = (
-        "textbook_upload"
-    )
+    collection_name = "textbook_upload"
 
     with st.status(
         "Processing your textbook...",
@@ -149,6 +186,7 @@ def process_uploaded_pdf(
             )
 
             if not pages:
+
                 raise ValueError(
                     "No readable text was found "
                     "in this PDF."
@@ -162,13 +200,12 @@ def process_uploaded_pdf(
                 "✂️ Splitting textbook into chunks..."
             )
 
-            chunks = (
-                ingest.chunk_documents(
-                    pages
-                )
+            chunks = ingest.chunk_documents(
+                pages
             )
 
             if not chunks:
+
                 raise ValueError(
                     "The PDF produced no usable chunks."
                 )
@@ -181,12 +218,10 @@ def process_uploaded_pdf(
                 "🧠 Creating embeddings..."
             )
 
-            vectorstore = (
-                ingest.build_vectorstore(
-                    chunks,
-                    persist_directory=chroma_dir,
-                    collection_name=collection_name,
-                )
+            vectorstore = ingest.build_vectorstore(
+                chunks,
+                persist_directory=chroma_dir,
+                collection_name=collection_name,
             )
 
             count = (
@@ -197,17 +232,13 @@ def process_uploaded_pdf(
                 f"✅ Stored {count} textbook chunks."
             )
 
-            st.session_state.vectorstore = (
-                vectorstore
-            )
+            st.session_state.vectorstore = vectorstore
 
             st.session_state.document_name = (
                 uploaded_file.name
             )
 
-            st.session_state.document_chunks = (
-                count
-            )
+            st.session_state.document_chunks = count
 
             st.session_state.document_pages = (
                 len(pages)
@@ -215,9 +246,17 @@ def process_uploaded_pdf(
 
             st.session_state.messages = []
 
-            st.session_state.temp_dir = (
-                str(temp_dir)
+            st.session_state.temp_dir = str(
+                temp_dir
             )
+
+            # Reset Teach-back state.
+            st.session_state.show_teach_back = False
+            st.session_state.teach_back_question = None
+            st.session_state.teach_back_chunks = []
+            st.session_state.teach_back_language = None
+            st.session_state.teach_back_result = None
+            st.session_state.teach_back_answer = ""
 
             status.update(
                 label="✅ Textbook ready!",
@@ -235,93 +274,97 @@ def process_uploaded_pdf(
                 f"Document processing failed: {exc}"
             )
 
-            # Clean up failed upload.
             shutil.rmtree(
                 temp_dir,
                 ignore_errors=True,
             )
 
 
-# ---------------------------------------------------------------------------
-# Answer generation
-# ---------------------------------------------------------------------------
+# ============================================================================
+# TEACH-BACK STATE
+# ============================================================================
 
-def answer_question(
+def open_teach_back(
     question: str,
-    vectorstore,
+    chunks,
     language: str,
 ) -> None:
+    """Open the Teach-back panel."""
 
-    with st.chat_message("user"):
-        st.markdown(question)
-
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": question,
-        }
+    st.session_state.teach_back_question = (
+        question
     )
 
-    with st.chat_message("assistant"):
+    st.session_state.teach_back_chunks = (
+        chunks
+    )
 
-        with st.status(
-            "Thinking...",
-            expanded=True,
-        ) as status:
+    st.session_state.teach_back_language = (
+        language
+    )
 
-            st.write(
-                f"🔎 Searching the uploaded textbook "
-                f"for: _{question}_"
-            )
+    st.session_state.teach_back_result = None
 
-            chunks = rag.retrieve(
-                question,
-                vectorstore,
-            )
+    st.session_state.teach_back_answer = ""
 
-            st.write(
-                f"📚 Retrieved {len(chunks)} "
-                "relevant textbook chunks."
-            )
+    st.session_state.show_teach_back = True
 
-            language_instruction = (
-                get_language_instruction(
-                    language
-                )
-            )
 
-            status.update(
-                label="Generating answer from textbook...",
-                state="running",
-            )
+# ============================================================================
+# TEACH-BACK EVALUATION
+# ============================================================================
 
-        placeholder = st.empty()
+def run_teach_back_evaluation(
+    student_answer: str,
+) -> None:
+    """Evaluate the student's explanation using textbook context."""
+
+    question = (
+        st.session_state.teach_back_question
+    )
+
+    chunks = (
+        st.session_state.teach_back_chunks
+    )
+
+    language = (
+        st.session_state.teach_back_language
+    )
+
+    if not question or not chunks:
+
+        st.error(
+            "No textbook explanation is available "
+            "for Teach-back."
+        )
+
+        return
+
+    if not student_answer.strip():
+
+        st.warning(
+            "Please explain the concept in your own words first."
+        )
+
+        return
+
+    language_instruction = (
+        get_language_instruction(
+            st.session_state.selected_language
+        )
+    )
+
+    with st.spinner(
+        "🧠 Checking your explanation..."
+    ):
 
         try:
 
-            start = time.perf_counter()
-
-            buffer = ""
-
-            for delta in llm.stream_answer(
-                question,
-                chunks,
-                language_instruction,
-            ):
-
-                buffer += delta
-
-                placeholder.markdown(
-                    buffer + "▌"
-                )
-
-            elapsed = (
-                time.perf_counter()
-                - start
-            )
-
-            placeholder.markdown(
-                buffer
+            result = llm.evaluate_teach_back(
+                question=question,
+                chunks=chunks,
+                student_answer=student_answer,
+                language_instruction=language_instruction,
             )
 
         except (
@@ -330,7 +373,7 @@ def answer_question(
             APIError,
         ) as exc:
 
-            placeholder.error(
+            st.error(
                 f"LLM API call failed: {exc}"
             )
 
@@ -338,33 +381,325 @@ def answer_question(
 
         except RuntimeError as exc:
 
-            placeholder.error(
+            st.error(
                 str(exc)
             )
 
             return
 
-        st.caption(
-            f"{elapsed:.2f} s · "
-            f"top-{len(chunks)} retrieval · "
-            f"language: {language}"
+    st.session_state.teach_back_result = result
+
+def generate_practice_questions() -> None:
+    """Generate adaptive practice questions."""
+
+    if st.session_state.vectorstore is None:
+        st.error(
+            "Please upload a textbook first."
+        )
+        return
+
+    language_instruction = (
+        get_language_instruction(
+            language
+        )
+    )
+
+    chunks = rag.retrieve(
+    "OAuth API authentication authorization concepts",
+    st.session_state.vectorstore,
+    k=5,
+    )
+    st.write("DEBUG practice chunks:", len(chunks))
+
+    if not chunks:
+        st.error(
+            "Could not find relevant textbook content."
+        )
+        return
+
+    with st.spinner(
+        "🧠 Creating practice questions..."
+    ):
+
+        try:
+
+            result = llm.generate_practice(
+                chunks=chunks,
+                language_instruction=language_instruction,
+                difficulty=(
+                    st.session_state.practice_difficulty
+                ),
+            )
+
+        except (
+            APIConnectionError,
+            RateLimitError,
+            APIError,
+        ) as exc:
+
+            st.error(
+                f"LLM API call failed: {exc}"
+            )
+            return
+
+        except RuntimeError as exc:
+
+            st.error(
+                str(exc)
+            )
+            return
+
+    st.session_state.practice_data = result.data
+    st.session_state.practice_result = result
+    st.session_state.practice_score = None
+    st.session_state.practice_answers = {}
+    st.session_state.practice_short_result = None
+
+
+# ============================================================================
+# TEACH-BACK UI
+# ============================================================================
+
+def render_teach_back() -> None:
+    """Render the separate Teach-back textbox."""
+
+    if not st.session_state.show_teach_back:
+        return
+
+    question = (
+        st.session_state.teach_back_question
+    )
+
+    language = (
+        st.session_state.teach_back_language
+    )
+
+    st.divider()
+
+    st.subheader(
+        "🧠 Teach it back"
+    )
+
+    st.write(
+        "Now explain the concept in your own words."
+    )
+
+    st.info(
+        "Don't copy Bodhi's answer. "
+        "Explain what you understood."
+    )
+
+    st.markdown(
+        f"**Concept:** {question}"
+    )
+
+    # This is a completely separate textbox.
+    student_answer = st.text_area(
+        "Your explanation",
+        placeholder=(
+            "Explain what you understood in your own words..."
+        ),
+        height=180,
+        key="teach_back_textbox",
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        if st.button(
+            "🔍 Check my explanation",
+            key="check_teach_back",
+            use_container_width=True,
+        ):
+
+            st.session_state.teach_back_answer = (
+                student_answer
+            )
+
+            run_teach_back_evaluation(
+                student_answer
+            )
+
+    with col2:
+
+        if st.button(
+            "✖️ Close Teach-back",
+            key="close_teach_back",
+            use_container_width=True,
+        ):
+
+            st.session_state.show_teach_back = False
+            st.session_state.teach_back_result = None
+            st.session_state.teach_back_question = None
+            st.session_state.teach_back_chunks = []
+            st.session_state.teach_back_language = None
+            st.session_state.teach_back_answer = ""
+
+            st.rerun()
+
+    result = (
+        st.session_state.teach_back_result
+    )
+
+    if result is not None:
+
+        st.divider()
+
+        st.subheader(
+            "📊 Your Teach-back Feedback"
         )
 
-        render_sources(chunks)
+        st.markdown(
+            result.text
+        )
+
+        st.caption(
+            f"Evaluation time: "
+            f"{result.latency_seconds:.2f} seconds · "
+            f"Language: {language}"
+        )
+
+
+# ============================================================================
+# ANSWER GENERATION
+# ============================================================================
+
+def answer_question(
+    question: str,
+    vectorstore,
+    language: str,
+) -> None:
+    """Retrieve textbook context and generate a grounded answer."""
+
+    # ------------------------------------------------------------------------
+    # Retrieve relevant textbook chunks.
+    # ------------------------------------------------------------------------
+
+    chunks = rag.retrieve(
+        question,
+        vectorstore,
+    )
+
+    # ------------------------------------------------------------------------
+    # HARD GROUNDING GATE
+    # ------------------------------------------------------------------------
+
+    if not chunks:
+
+        refusal = (
+            "I couldn't find this information in the uploaded "
+            "textbook. Please ask a question about the content "
+            "you uploaded."
+        )
+
+        st.session_state.messages.append(
+            {
+                "role": "user",
+                "content": question,
+            }
+        )
+
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": refusal,
+                "latency": 0.0,
+                "chunks": [],
+                "question": question,
+                "language": language,
+            }
+        )
+
+        st.rerun()
+
+        return
+
+    # ------------------------------------------------------------------------
+    # Language instruction.
+    # ------------------------------------------------------------------------
+
+    language_instruction = (
+        get_language_instruction(
+            language
+        )
+    )
+
+    # ------------------------------------------------------------------------
+    # Generate answer.
+    # ------------------------------------------------------------------------
+
+    try:
+
+        start = time.perf_counter()
+
+        answer_text = ""
+
+        for delta in llm.stream_answer(
+            question,
+            chunks,
+            language_instruction,
+        ):
+
+            answer_text += delta
+
+        elapsed = (
+            time.perf_counter()
+            - start
+        )
+
+    except (
+        APIConnectionError,
+        RateLimitError,
+        APIError,
+    ) as exc:
+
+        st.error(
+            f"LLM API call failed: {exc}"
+        )
+
+        return
+
+    except RuntimeError as exc:
+
+        st.error(
+            str(exc)
+        )
+
+        return
+
+    # ------------------------------------------------------------------------
+    # SAVE BOTH QUESTION AND ANSWER BEFORE RERUN.
+    # ------------------------------------------------------------------------
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": question,
+        }
+    )
 
     st.session_state.messages.append(
         {
             "role": "assistant",
-            "content": buffer,
+            "content": answer_text,
             "latency": elapsed,
             "chunks": chunks,
+            "question": question,
+            "language": language,
         }
     )
 
+    # IMPORTANT:
+    # The answer is now safely stored.
+    # On rerun the chat-history section will display it and
+    # create its Teach-back button.
+    st.rerun()
 
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
+
+# ============================================================================
+# SIDEBAR
+# ============================================================================
 
 with st.sidebar:
 
@@ -433,6 +768,7 @@ with st.sidebar:
         index=list(
             SUPPORTED_LANGUAGES.keys()
         ).index("Telugu"),
+        key='selected_language',
     )
 
     st.divider()
@@ -461,12 +797,19 @@ with st.sidebar:
 
         st.session_state.messages = []
 
+        st.session_state.show_teach_back = False
+        st.session_state.teach_back_question = None
+        st.session_state.teach_back_chunks = []
+        st.session_state.teach_back_language = None
+        st.session_state.teach_back_result = None
+        st.session_state.teach_back_answer = ""
+
         st.rerun()
 
 
-# ---------------------------------------------------------------------------
-# Main UI
-# ---------------------------------------------------------------------------
+# ============================================================================
+# MAIN UI
+# ============================================================================
 
 st.title(
     "📚 Bodhi AI Tutor"
@@ -489,9 +832,9 @@ if st.session_state.vectorstore is None:
     st.stop()
 
 
-# ---------------------------------------------------------------------------
-# Document information
-# ---------------------------------------------------------------------------
+# ============================================================================
+# DOCUMENT INFORMATION
+# ============================================================================
 
 st.success(
     f"📖 **{st.session_state.document_name}** "
@@ -501,29 +844,59 @@ st.success(
 col1, col2, col3 = st.columns(3)
 
 with col1:
+
     st.metric(
         "Pages",
         st.session_state.document_pages,
     )
 
 with col2:
+
     st.metric(
         "Chunks",
         st.session_state.document_chunks,
     )
 
 with col3:
+
     st.metric(
         "Language",
         language,
     )
 
+# ============================================================================
+# ADAPTIVE PRACTICE
+# ============================================================================
 
-# ---------------------------------------------------------------------------
-# Replay chat history
-# ---------------------------------------------------------------------------
+st.divider()
 
-for msg in st.session_state.messages:
+st.subheader("📘 Adaptive Practice")
+
+st.write(
+    f"Current difficulty: "
+    f"**{st.session_state.practice_difficulty}**"
+)
+
+if st.button(
+    "🚀 Generate Practice",
+    use_container_width=True,
+):
+
+    generate_practice_questions()
+
+
+
+# ============================================================================
+# CHAT HISTORY
+# ============================================================================
+#
+# Every assistant answer gets its own Teach-back button here.
+# This includes the FIRST answer.
+# ============================================================================
+
+for index, msg in enumerate(
+    st.session_state.messages
+):
 
     with st.chat_message(
         msg["role"]
@@ -533,40 +906,68 @@ for msg in st.session_state.messages:
             msg["content"]
         )
 
-        if (
-            msg["role"]
-            == "assistant"
-        ):
+        if msg["role"] == "assistant":
 
             st.caption(
                 f"{msg['latency']:.2f} s · "
                 f"top-{len(msg['chunks'])} retrieval"
             )
 
-            render_sources(
-                msg["chunks"]
-            )
+            if msg["chunks"]:
+
+                render_sources(
+                    msg["chunks"]
+                )
+
+                saved_question = msg.get(
+                    "question"
+                )
+
+                saved_language = msg.get(
+                    "language",
+                    language,
+                )
+
+                if saved_question:
+
+                    if st.button(
+                        "🧠 Teach it back",
+                        key=f"teach_back_history_{index}",
+                        use_container_width=True,
+                    ):
+
+                        open_teach_back(
+                            saved_question,
+                            msg["chunks"],
+                            saved_language,
+                        )
+
+                        st.rerun()
 
 
-# ---------------------------------------------------------------------------
-# Chat input
-# ---------------------------------------------------------------------------
+# ============================================================================
+# TEACH-BACK PANEL
+# ============================================================================
+
+render_teach_back()
+
+
+# ============================================================================
+# NORMAL CHAT INPUT
+# ============================================================================
 
 question = st.chat_input(
     "Ask about your uploaded textbook..."
 )
 
 
-if (
-    st.session_state.pending_question
-):
+if st.session_state.pending_question:
+
     question = (
         st.session_state.pending_question
     )
 
-    st.session_state.pending_question = (
-        None
-    )
+    st.session_state.pending_question = None
 
 
 if question and question.strip():

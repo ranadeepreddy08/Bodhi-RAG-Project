@@ -50,15 +50,26 @@ def retrieve(
     vectorstore: Chroma,
     k: int = TOP_K,
 ) -> list[Document]:
-    """Retrieve the most relevant textbook chunks."""
+    """Retrieve relevant textbook chunks."""
 
     if not query.strip():
         return []
 
-    return vectorstore.similarity_search(
+    results = vectorstore.similarity_search_with_relevance_scores(
         query,
         k=k,
     )
+
+    # Keep only reasonably relevant textbook chunks.
+    MIN_RELEVANCE = 0.45
+
+    relevant_docs = [
+        doc
+        for doc, score in results
+        if score >= MIN_RELEVANCE
+    ]
+
+    return relevant_docs
 
 
 def vectorstore_count(
